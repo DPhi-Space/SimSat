@@ -1,5 +1,5 @@
 # FakeSat
-This repositorey simulates the accessibility of live satellite imagery from a satellite. An orbit propagator calculates the satellites position and an API serves as an interface to on-board users, sharing the current position and providing satellite imagery from that location. A web-based dashboard controls and visualizes the simulation.
+This repository simulates the accessibility of live satellite imagery from a satellite. An orbit propagator calculates the satellites position and an API serves as an interface to on-board users, sharing the current position and providing satellite imagery from that location. A web-based dashboard controls and visualizes the simulation.
 
 
 ## Work in Progress Disclaimer
