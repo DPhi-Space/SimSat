@@ -67,6 +67,7 @@ async def get_sentinel_image(
                     "footprint": metadata["footprint"],
                     "size_km": metadata["size_km"],
                     "cloud_cover": metadata["cloud_cover"],
+                    "datetime_window": metadata["datetime_window"],
                     "satellite_position": data,
                     "timestamp": timestamp,
                 }
@@ -85,6 +86,7 @@ async def get_sentinel_image(
                 "footprint": metadata["footprint"],
                 "size_km": metadata["size_km"],
                 "cloud_cover": metadata["cloud_cover"],
+                "datetime_window": metadata["datetime_window"],
                 "satellite_position": data,
                 "timestamp": timestamp
             }
