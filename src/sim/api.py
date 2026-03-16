@@ -67,7 +67,7 @@ async def get_sentinel_image(
                     "footprint": metadata["footprint"],
                     "size_km": metadata["size_km"],
                     "cloud_cover": metadata["cloud_cover"],
-                    "datetime_window": metadata["datetime_window"],
+                    "datetime": metadata["datetime"],
                     "satellite_position": data,
                     "timestamp": timestamp,
                 }
@@ -86,7 +86,7 @@ async def get_sentinel_image(
                 "footprint": metadata["footprint"],
                 "size_km": metadata["size_km"],
                 "cloud_cover": metadata["cloud_cover"],
-                "datetime_window": metadata["datetime_window"],
+                "datetime": metadata["datetime"],
                 "satellite_position": data,
                 "timestamp": timestamp
             }
@@ -101,9 +101,33 @@ async def get_mapbox_image(
 ):
     try:
         satellite_position = getattr(api.state, "shared_data", {}).get("satellite_position", None)
-        image = mapbox.get_target_image(satellite_position[0], satellite_position[1], satellite_position[2], lon, lat)
-        
-        return Response(content=image, media_type="image/png")
+        timestamp = getattr(api.state, "shared_data", {}).get("last_updated", None)
+
+        if satellite_position is None:
+            raise HTTPException(status_code=500, detail="Error fetching satellite position from shared data - is the simulator running?")
+
+        mapbox_data = mapbox.get_target_image(satellite_position[0], satellite_position[1], satellite_position[2], lon, lat)
+        image = mapbox_data["image"]
+        metadata = mapbox_data["metadata"]
+
+        response_metadata = {
+            "target_visible": metadata["target_visible"],
+            "image_available": metadata["image_available"],
+            "elevation_degrees": metadata["elevation_degrees"],
+            "zoom_factor": metadata["zoom_factor"],
+            "bearing": metadata["bearing"],
+            "pitch": metadata["pitch"],
+            "satellite_position": satellite_position,
+            "timestamp": timestamp
+        }
+        headers = {
+            "mapbox_metadata": json.dumps(response_metadata),
+            "Access-Control-Expose-Headers": "mapbox_metadata",
+        }
+
+        return Response(content=image if image is not None else b"", media_type="image/png",headers=headers)
+    except HTTPException:
+        raise
     except Exception as e:
         print(e)
         raise HTTPException(status_code=500, detail="Error fetching Mapbox image: " + str(e))

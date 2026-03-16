@@ -94,7 +94,7 @@ def test_mapbox():
 
     params = {
         "lat": lat,
-        "lon": lon 
+        "lon": lon
     }
     response = requests.get("http://localhost:9005/data/current/image/mapbox", params=params)
 
@@ -104,6 +104,12 @@ def test_mapbox():
         print(f"Response: {response.text}")
         print(response.content)
         exit(1)
+
+    metadata = json.loads(response.headers.get("mapbox_metadata"))
+    print(f"Mapbox metadata: {metadata}")
+    if not metadata.get("image_available", False):
+        print("No image available")
+        return
 
     # show the image
     image = mpimg.imread(io.BytesIO(response.content), format='PNG')
@@ -117,7 +123,7 @@ def test_sentinel():
     params = {
         "spectral_bands": ["red", "green", "blue"],
         "size_km": 5.0,
-        "return_type": "array"
+        "return_type": "png"
     }
     response = requests.get("http://localhost:9005/data/current/image/sentinel", params=params)
 
@@ -227,7 +233,7 @@ def test_sentinel_hyperspectral():
     # mapbox image
 
 if __name__ == "__main__":
-    test_sentinel()
-    #test_mapbox()
+    #test_sentinel()
+    test_mapbox()
     #mapbox_sentinel_test()
     #test_sentinel_hyperspectral()

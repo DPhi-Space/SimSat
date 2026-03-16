@@ -26,7 +26,7 @@ class SentinelProvider:
                 "footprint": list(bbox),
                 "size_km": size_km,
                 "cloud_cover": None,
-                "datetime_window": datetime_window
+                "datetime": None,
             }
         else:
             metadata = {
@@ -36,7 +36,7 @@ class SentinelProvider:
                 "footprint": list(bbox),
                 "size_km": size_km,
                 "cloud_cover": metadata["cloud_cover"],
-                "datetime_window": datetime_window
+                "datetime": metadata["date"].isoformat().replace("+00:00", "")
             }
 
         if data_type == "png":
@@ -98,7 +98,7 @@ class SentinelProvider:
             ts_dt = ts_dt.astimezone(timezone.utc)
         ts_dt = ts_dt.replace(microsecond=0)
         start = ts_dt - timedelta(days=window_days)
-        end = ts_dt + timedelta(days=window_days)
+        end = ts_dt
         return f"{start.isoformat().replace('+00:00', 'Z')}/{end.isoformat().replace('+00:00', 'Z')}"
     
     # ------------------------------------
