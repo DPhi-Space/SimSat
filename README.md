@@ -14,7 +14,7 @@ This tool simulates the accessibility of Earth imagery from a satellite. An orbi
 - [Datasets](#datasets)
   - [Sentinel-2](#sentinel-2)
   - [Mapbox](#mapbox)
-- [Example Usage](#example-usage)
+- [Test Examples](#test-examples)
 
 ---
 # Getting Started
@@ -52,7 +52,7 @@ The satellite can be accessed through the provided APIs. The base URL for the AP
 This endpoint returns the current position of the satellite in latitude (degrees), longitude (degrees), and altitude (kilometers), as well as the current simulation timestamp.
 
 **Response Example:**
-```json
+```bash
 {
   'lon-lat-alt':[130.39051988505403,17.87271962388168,791.3415172015517],
   'timestamp':'2026-01-01T16:00:00Z'
@@ -71,7 +71,7 @@ This endpoint returns an image from the Sentinel-2 dataset for the current satel
 
 **Response Example:**
 If `return_type="png"` an image file is returned as the response, while if `return_type="array"` base64-encoded raw array bytes are returned. Also, the following metadata are returned:
-```json
+```bash
 {
   'image_available': True, 
   'source': 'sentinel-2a', 
@@ -102,7 +102,7 @@ This endpoint returns an image from the Mapbox dataset for the current satellite
 
 **Response Example:**
 A PNG image file is returned as the response. Also, the following metadata are returned:
-```json
+```bash
 {
   'target_visible': True, 
   'image_available': True, 
