@@ -12,8 +12,17 @@ class SentinelProvider:
         self.client = Client.open("https://earth-search.aws.element84.com/v1")
         #self.bands = ['aot', 'blue', 'coastal', 'green', 'nir', 'nir08', 'nir09', 'red', 'rededge1', 'rededge2', 'rededge3', 'scl', 'swir16', 'swir22', 'visual', 'wvp']
 
-    def get_single_image_lon_lat(self, lon, lat, timestamp, data_type="png", spectral_bands=['red', 'green', 'blue'], size_km=10):
-        datetime_window = self.build_stac_datetime_window(timestamp)
+    def get_single_image_lon_lat(
+        self,
+        lon,
+        lat,
+        timestamp,
+        data_type="png",
+        spectral_bands=['red', 'green', 'blue'],
+        size_km=5,
+        window_seconds=10 * 24 * 60 * 60,
+    ):
+        datetime_window = self.build_stac_datetime_window(timestamp, window_seconds=window_seconds)
 
         bbox = self.get_bbox_around_lon_lat(lon, lat, image_size_km=size_km)
 
@@ -36,7 +45,7 @@ class SentinelProvider:
                 "footprint": list(bbox),
                 "size_km": size_km,
                 "cloud_cover": metadata["cloud_cover"],
-                "datetime": metadata["date"].isoformat().replace("+00:00", "")
+                "datetime": self.format_timestamp_utc_z(metadata["date"]),
             }
 
         if data_type == "png":
@@ -50,6 +59,15 @@ class SentinelProvider:
             "image": image,
             "metadata": metadata
         }
+
+    def format_timestamp_utc_z(self, timestamp):
+        if not isinstance(timestamp, datetime):
+            return timestamp
+        if timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=timezone.utc)
+        else:
+            timestamp = timestamp.astimezone(timezone.utc)
+        return timestamp.replace(microsecond=0).isoformat().replace("+00:00", "Z")
         
     def get_single_array_image_bbox(self, bbox, datetime, spectral_bands=['red', 'green', 'blue']):
         search = self.client.search(
@@ -83,7 +101,7 @@ class SentinelProvider:
 
         return image_data, metadata
     
-    def build_stac_datetime_window(self, timestamp, window_days=15):
+    def build_stac_datetime_window(self, timestamp, window_seconds=10 * 24 * 60 * 60):
         if not isinstance(timestamp, str):
             # During startup, shared_data may not yet contain a simulation timestamp.
             timestamp = datetime.now(timezone.utc).isoformat()
@@ -97,15 +115,15 @@ class SentinelProvider:
         else:
             ts_dt = ts_dt.astimezone(timezone.utc)
         ts_dt = ts_dt.replace(microsecond=0)
-        start = ts_dt - timedelta(days=window_days)
-        end = ts_dt + timedelta(minutes=10)
+        start = ts_dt - timedelta(seconds=float(window_seconds))
+        end = ts_dt
         return f"{start.isoformat().replace('+00:00', 'Z')}/{end.isoformat().replace('+00:00', 'Z')}"
     
     # ------------------------------------
     # Helper Functions
     # ------------------------------------
 
-    def get_bbox_around_lon_lat(self, lon, lat, image_size_km=1):
+    def get_bbox_around_lon_lat(self, lon, lat, image_size_km=5):
         """
         Create a bounding box (min_lon, min_lat, max_lon, max_lat) 
         around a given lon/lat point.
@@ -148,15 +166,3 @@ class SentinelProvider:
         image.save(buffer, format="PNG")
         buffer.seek(0) # go to the beginning of the buffer
         return buffer
-
-    
-
-if __name__ == "__main__":
-    provider = SentinelProvider()
-    # Example coordinates (lofoten, norway)
-    lon, lat = 14.1910, 68.1530
-    image = provider.get_single_image_lon_lat(lon, lat, "2023-06-01/2023-06-30", data_type="png")
-    img = plt.imread(image)
-    plt.imshow(img)
-    plt.axis('off')
-    plt.show()

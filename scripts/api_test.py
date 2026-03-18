@@ -155,6 +155,7 @@ def test_sentinel():
     params = {
         "spectral_bands": ["red", "green", "blue"],
         "size_km": 5.0,
+        "window_seconds": 60.0,
         "return_type": "png"
     }
     response = requests.get("http://localhost:9005/data/current/image/sentinel", params=params)
@@ -184,9 +185,10 @@ def test_sentinel_lon_lat():
     params = {
         "lon": 6.6323,
         "lat": 46.5197,
-        "timestamp": "2024-07-28T23:59:59.459134",
+        "timestamp": "2024-07-28T23:59:59Z",
         "spectral_bands": ["red", "green", "blue"],
         "size_km": 15.0,
+        "window_seconds": 60.0,
         "return_type": "array"
     }
     response = requests.get("http://localhost:9005/data/image/sentinel", params=params)
@@ -212,36 +214,6 @@ def test_sentinel_lon_lat():
         print(f"Error: Received status code {response.status_code}")
         print(f"Response: {response.text}")
 
-def mapbox_sentinel_test():
-    # sentinel image
-    response = requests.get("http://localhost:9005/data/current/image/sentinel")
-
-    if response.status_code != 200:
-        print(f"Error: Received status code {response.status_code}")
-        print(f"Response: {response.text}")
-        return
-    sentinel_img = mpimg.imread(io.BytesIO(response.content), format='PNG')
-
-    position = requests.get("http://localhost:9005/data/current/position").json()
-    params = {"lat": position["lon-lat-alt"][1], "lon": position["lon-lat-alt"][0] }
-    response = requests.get("http://localhost:9005/data/current/image/mapbox", params=params)
-
-    # check whether the request returned an error
-    if response.status_code != 200:
-        print(f"Error: Received status code {response.status_code}")
-        print(f"Response: {response.text}")
-        return
-    mapbox_image = mpimg.imread(io.BytesIO(response.content), format='PNG')
-
-    # show both images side by side
-    fig, ax = plt.subplots(1, 2, figsize=(16, 8))
-    ax[0].imshow(sentinel_img)
-    ax[0].set_title("Sentinel Image")
-    ax[0].axis('off')
-    ax[1].imshow(mapbox_image)
-    ax[1].set_title("Mapbox Image")
-    ax[1].axis('off')
-    plt.show()
 
 def test_sentinel_hyperspectral():
 
@@ -274,7 +246,8 @@ def test_sentinel_hyperspectral():
         params = {
         "spectral_bands": spectral_bands,
         "size_km": 5.0,
-        "return_type": "png"
+        "return_type": "png",
+        "window_seconds": 60.0,
         }
         response = requests.get("http://localhost:9005/data/current/image/sentinel", params=params)
         if response.status_code != 200:
@@ -299,7 +272,6 @@ def test_sentinel_hyperspectral():
 if __name__ == "__main__":
     test_sentinel()
     #test_mapbox()
-    #mapbox_sentinel_test()
     #test_sentinel_hyperspectral()
     #test_sentinel_lon_lat()
     #test_mapbox_lon_lat()

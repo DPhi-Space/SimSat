@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, Query, Response
 from typing import List, Literal
 import base64
 import json
+from datetime import datetime, timezone
 from ImagingProviders.sentinel_provider import SentinelProvider
 from ImagingProviders.mapbox_provider import MapboxlProvider
 
@@ -27,20 +28,46 @@ def serialize_xarray_dataset(ds):
         "image": image_b64
     }
 
+
+def format_timestamp_utc(timestamp):
+    if isinstance(timestamp, datetime):
+        dt = timestamp
+    elif isinstance(timestamp, (int, float)):
+        dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+    elif isinstance(timestamp, str):
+        normalized = timestamp.strip()
+        if normalized.endswith("Z"):
+            normalized = normalized[:-1] + "+00:00"
+        try:
+            dt = datetime.fromisoformat(normalized)
+        except ValueError:
+            return timestamp
+    else:
+        return timestamp
+
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    else:
+        dt = dt.astimezone(timezone.utc)
+
+    return dt.replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
 @api.get("/data/current/position")
 async def get_metrics():
     # We access the shared data that the orchestrator will inject
     data = getattr(api.state, "shared_data", {})
+    timestamp = format_timestamp_utc(data.get("last_updated", 0))
     return {
         "lon-lat-alt": data.get("satellite_position", [0, 0, 0]),
-        "timestamp": data.get("last_updated", 0)
+        "timestamp": timestamp
     }
 
 
 @api.get("/data/current/image/sentinel")
 async def get_sentinel_image(
     spectral_bands: List[str] = Query(default=["red", "green", "blue"]),
-    size_km: float = 10.0,
+    size_km: float = 5.0,
+    window_seconds: float = Query(default=10 * 24 * 60 * 60, gt=0),
     return_type: Literal["array", "png"] = "png"
 ):
     data = getattr(api.state, "shared_data", {}).get("satellite_position", None)
@@ -49,7 +76,15 @@ async def get_sentinel_image(
     if data is None:
         raise HTTPException(status_code=500, detail="Error fetching satellite position from shared data - is the simulator running?")
     #try:
-    sentinel_data = sentinel.get_single_image_lon_lat(data[0], data[1], timestamp, data_type=return_type, spectral_bands=spectral_bands, size_km=size_km)
+    sentinel_data = sentinel.get_single_image_lon_lat(
+        data[0],
+        data[1],
+        timestamp,
+        data_type=return_type,
+        spectral_bands=spectral_bands,
+        size_km=size_km,
+        window_seconds=window_seconds,
+    )
     #except Exception as e:
     #    error_details = traceback.format_exc()
     #    raise HTTPException(status_code=500, detail="Error fetching Sentinel image: " + error_details)
@@ -69,7 +104,7 @@ async def get_sentinel_image(
                     "cloud_cover": metadata["cloud_cover"],
                     "datetime": metadata["datetime"],
                     "satellite_position": data,
-                    "timestamp": timestamp,
+                    "timestamp": format_timestamp_utc(timestamp),
                 }
             ),
             "Access-Control-Expose-Headers": "sentinel_metadata",
@@ -88,7 +123,7 @@ async def get_sentinel_image(
                 "cloud_cover": metadata["cloud_cover"],
                 "datetime": metadata["datetime"],
                 "satellite_position": data,
-                "timestamp": timestamp
+                "timestamp": format_timestamp_utc(timestamp),
             }
         }
     else:
@@ -118,7 +153,7 @@ async def get_mapbox_image(
             "bearing": metadata["bearing"],
             "pitch": metadata["pitch"],
             "satellite_position": satellite_position,
-            "timestamp": timestamp
+            "timestamp": format_timestamp_utc(timestamp),   
         }
         headers = {
             "mapbox_metadata": json.dumps(response_metadata),
@@ -139,11 +174,20 @@ async def get_sentinel_image_lon_lat(
     lat: float = Query(..., description="The latitude of the location", ge=-90, le=90),
     timestamp: str = Query(..., description="The timestamp of the image", format="date-time"),
     spectral_bands: List[str] = Query(default=["red", "green", "blue"]),
-    size_km: float = 10.0,
+    size_km: float = 5.0,
+    window_seconds: float = Query(default=10 * 24 * 60 * 60, gt=0),
     return_type: Literal["array", "png"] = "png"
 ):
     #try:
-    sentinel_data = sentinel.get_single_image_lon_lat(lon, lat, timestamp, data_type=return_type, spectral_bands=spectral_bands, size_km=size_km)
+    sentinel_data = sentinel.get_single_image_lon_lat(
+        lon,
+        lat,
+        timestamp,
+        data_type=return_type,
+        spectral_bands=spectral_bands,
+        size_km=size_km,
+        window_seconds=window_seconds,
+    )
     #except Exception as e:
     #    error_details = traceback.format_exc()
     #    raise HTTPException(status_code=500, detail="Error fetching Sentinel image: " + error_details)
