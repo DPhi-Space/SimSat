@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException, Query, Response
-from typing import List, Literal
+from typing import List, Literal, Optional
 import base64
 import json
 from datetime import datetime, timezone
@@ -131,8 +131,8 @@ async def get_sentinel_image(
 
 @api.get("/data/current/image/mapbox")
 async def get_mapbox_image(
-    lon: float = Query(..., description="The longitude of the location", ge=-180, le=180),
-    lat: float = Query(..., description="The latitude of the location", ge=-90, le=90)
+    lon: Optional[float] = Query(default=None, description="Target longitude (defaults to current satellite longitude)", ge=-180, le=180),
+    lat: Optional[float] = Query(default=None, description="Target latitude (defaults to current satellite latitude)", ge=-90, le=90)
 ):
     try:
         satellite_position = getattr(api.state, "shared_data", {}).get("satellite_position", None)
@@ -141,7 +141,16 @@ async def get_mapbox_image(
         if satellite_position is None:
             raise HTTPException(status_code=500, detail="Error fetching satellite position from shared data - is the simulator running?")
 
-        mapbox_data = mapbox.get_target_image(satellite_position[0], satellite_position[1], satellite_position[2], lon, lat)
+        target_lon = satellite_position[0] if lon is None else lon
+        target_lat = satellite_position[1] if lat is None else lat
+
+        mapbox_data = mapbox.get_target_image(
+            satellite_position[0],
+            satellite_position[1],
+            satellite_position[2],
+            target_lon,
+            target_lat,
+        )
         image = mapbox_data["image"]
         metadata = mapbox_data["metadata"]
 

@@ -158,7 +158,7 @@ class SentinelProvider:
             
         def scale_rgb_255(image_array):
             """Normalize 16-bit reflectance to 0-255 for display"""
-            return (image_array / 10000 * 255).clip(0, 255).astype(np.uint8)
+            return (image_array / 3000 * 255).clip(0, 255).astype(np.uint8)
         
         array = scale_rgb_255(image_data[spectral_bands].to_array().values.transpose(1, 2, 0))
         image = Image.fromarray(array)

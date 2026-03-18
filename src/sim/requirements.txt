@@ -11,4 +11,3 @@ click
 cartopy
 httplib2
 pyqt6
-xarray
