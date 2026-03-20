@@ -1,219 +1,229 @@
-# make the equivalent of curl http://127.0.0.1:8000/data/current/image/sentinel in python
-
-import requests
-import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
-import xarray as xr
-import base64
-import numpy as np
+import argparse
 import io
-from PIL import Image
-from io import BytesIO
+import json
+from typing import Any, Dict, List, Optional
 
-def show_image(image_data):
-    def scale_rgb(image_array):
-        """Normalize 16-bit reflectance to 0-1 for display"""
-        return (image_array / 3000).clip(0, 1)
-    
-    images = {}
+import matplotlib.image as mpimg
+import matplotlib.pyplot as plt
+import requests
 
-    
-    # create false color images using different band combinations
-    # True Color (Red, Green, Blue)
-    images['rgb'] = {'image': scale_rgb(image_data[["red", "green", "blue"]].to_array().values.transpose(1, 2, 0))}
-    images['rgb']['description'] = "True Color (red, green, blue)"
 
-    print(f"Prepared {len(images)} images for display.")
+BASE_URL = "http://localhost:9005"
+REQUEST_TIMEOUT_SECONDS = 30
 
-    if len(images) == 0:
-        print("No images to display.")
-        return
-    elif len(images) == 1:
-        key, img_info = next(iter(images.items()))
-        plt.figure(figsize=(8, 8))
-        plt.imshow(img_info['image'])
-        plt.title(img_info['description'])
-        plt.axis('off')
-    else:
-        n_cols = min(5, len(images))
-        n_rows = (len(images) + n_cols - 1) // n_cols
-        fig, ax = plt.subplots(n_rows, n_cols, figsize=(20, 10))
 
-        for i, (key, img_info) in enumerate(images.items()):
-            r = i // n_cols
-            c = i % n_cols
-            ax[r, c].imshow(img_info['image'])
-            ax[r, c].set_title(img_info['description'])
-            ax[r, c].axis('off')
+def _request_get(endpoint: str, params: Optional[Dict[str, Any]] = None) -> Optional[requests.Response]:
+    url = f"{BASE_URL}{endpoint}"
+    try:
+        response = requests.get(url, params=params, timeout=REQUEST_TIMEOUT_SECONDS)
+    except requests.RequestException as exc:
+        print(f"Request failed for {url}: {exc}")
+        return None
 
-    plt.tight_layout()
-    print("Displaying images...")
-    plt.show()
-
-def test_sentinel_old():
-    response = requests.get("http://localhost:9005/data/current/image/sentinel")
-
-    # check whether the request returned an error
     if response.status_code != 200:
-        print(f"Error: Received status code {response.status_code}")
-        print(f"Response: {response.text}")
-        exit(1)
+        print(f"Error from {url}: status code {response.status_code}")
+        print(f"Response body: {response.text}")
+        return None
+
+    return response
 
 
-    response_json = response.json()
-    meta = response_json['metadata']
+def _show_png(content: bytes, title: str) -> bool:
+    if not content:
+        print("Empty PNG payload.")
+        return False
+    try:
+        image = mpimg.imread(io.BytesIO(content), format="PNG")
+    except Exception as exc:
+        print(f"Could not decode PNG image: {exc}")
+        return False
 
-    # 1. Decode and reshape
-    raw_bytes = base64.b64decode(response_json['image'])
-    flat_array = np.frombuffer(raw_bytes, dtype=meta['dtype'])
-    reshaped_array = flat_array.reshape(meta['shape'])
-
-    # 2. Rebuild the Dataset
-    # We put it back into the (Band, Y, X) structure
-    image_xr = xr.DataArray(
-        reshaped_array,
-        dims=("band", "y", "x"),
-        coords={"band": meta['bands']}
-    ).to_dataset(dim="band")
-
-    # Now this will work!
-    show_image(image_xr)
-
-def test_mapbox():
-    # get the satellite position from the api
-
-    position = requests.get("http://localhost:9005/data/current/position").json()
-    lon = position["lon-lat-alt"][0]
-    lat = position["lon-lat-alt"][1]
-
-    # we always look straight down
-
-    print(f"Satellite position lon={lon}, lat={lat}")
-
-
-    params = {
-        "lat": lat,
-        "lon": lon 
-    }
-    response = requests.get("http://localhost:9005/data/current/image/mapbox", params=params)
-
-    # check whether the request returned an error
-    if response.status_code != 200:
-        print(f"Error: Received status code {response.status_code}")
-        print(f"Response: {response.text}")
-        print(response.content)
-        exit(1)
-
-    # show the image
-    image = mpimg.imread(io.BytesIO(response.content), format='PNG')
     plt.figure(figsize=(8, 8))
     plt.imshow(image)
-    plt.title(f"Mapbox Image at lon={lon}, lat={lat}")
-    plt.axis('off')
+    plt.title(title)
+    plt.axis("off")
     plt.show()
+    return True
 
-def test_sentinel():
+
+def _test_sentinel_endpoint(endpoint: str, params: Dict[str, Any]) -> None:
+    response = _request_get(endpoint, params=params)
+    if response is None:
+        return
+
+    if params.get("return_type", "png") == "png":
+        try:
+            metadata = json.loads(response.headers.get("sentinel_metadata", ""))
+        except json.JSONDecodeError:
+            metadata = None
+
+        print(f"Sentinel metadata: {metadata}")
+        if not metadata.get("image_available"):
+            print("No image available")
+            return
+        _show_png(response.content, "Sentinel image")
+        return
+
+    try:
+        payload = response.json()
+    except ValueError:
+        print("Invalid JSON body.")
+        return
+
+    metadata = payload.get("sentinel_metadata")
+
+    print(f"Sentinel metadata: {metadata}")
+    if not metadata.get("image_available"):
+        print("No image available")
+        return
+
+    image = payload.get("image")
+    shape = image.get("metadata", {}).get("shape") if isinstance(image, dict) else None
+    print(f"Sentinel image shape: {shape}" if shape is not None else "Image available but shape metadata is missing.")
+
+
+def _test_mapbox_endpoint(endpoint: str, params: Dict[str, Any]) -> None:
+    response = _request_get(endpoint, params=params)
+    if response is None:
+        return
+
+    try:
+        metadata = json.loads(response.headers.get("mapbox_metadata", ""))
+    except json.JSONDecodeError:
+        metadata = None
+
+    print(f"Mapbox metadata: {metadata}")
+    if not metadata.get("image_available"):
+        print("No image available")
+        return
+
+    _show_png(response.content, "Mapbox image")
+
+
+def test_sentinel_current() -> None:
     params = {
-        "spectral_bands": ["rededge1", "rededge2", "rededge3"],
+        "spectral_bands": ["red", "green", "blue"],
         "size_km": 5.0,
-        "return_type": "png"
+        "return_type": "png",
+        #"window_seconds": 60.0
     }
-    response = requests.get("http://localhost:9005/data/current/image/sentinel", params=params)
+    _test_sentinel_endpoint("/data/current/image/sentinel", params=params)
 
-    if response.status_code == 200:
-        # Convert the raw bytes back into a PIL Image
-        img = Image.open(BytesIO(response.content))
-        img.show()  # This opens your default OS image viewer
-    else:
-        print(f"Error: Received status code {response.status_code}")
-        print(f"Response: {response.text}")
 
-def mapbox_sentinel_test():
-    # sentinel image
-    response = requests.get("http://localhost:9005/data/current/image/sentinel")
+def test_sentinel() -> None:
+    params = {
+        "lon": 6.6323,
+        "lat": 46.5197,
+        "timestamp": "2026-03-01T16:00:00Z",
+        "spectral_bands": ["red", "green", "blue"],
+        "size_km": 5.0,
+        "return_type": "png",
+        #"window_seconds": 60.0
+    }
+    _test_sentinel_endpoint("/data/image/sentinel", params=params)
 
-    if response.status_code != 200:
-        print(f"Error: Received status code {response.status_code}")
-        print(f"Response: {response.text}")
+
+def test_sentinel_multispectral() -> None:
+    band_sets: List[List[str]] = [
+        ["red", "green", "blue"],
+        ["nir", "red", "green"],
+        ["swir22", "nir", "green"],
+        ["swir22", "swir16", "red"],
+        ["rededge1", "rededge2", "rededge3"],
+    ]
+
+    # Freeze location (and timestamp when available) once so every band set
+    # is requested at the exact same satellite coordinates.
+    position_response = _request_get("/data/current/position")
+    if position_response is None:
         return
-    sentinel_img = mpimg.imread(io.BytesIO(response.content), format='PNG')
-
-    position = requests.get("http://localhost:9005/data/current/position").json()
-    params = {"lat": position["lon-lat-alt"][1], "lon": position["lon-lat-alt"][0] }
-    response = requests.get("http://localhost:9005/data/current/image/mapbox", params=params)
-
-    # check whether the request returned an error
-    if response.status_code != 200:
-        print(f"Error: Received status code {response.status_code}")
-        print(f"Response: {response.text}")
+    try:
+        position_data = position_response.json()
+    except ValueError:
+        print("Invalid JSON body for /data/current/position.")
         return
-    mapbox_image = mpimg.imread(io.BytesIO(response.content), format='PNG')
 
-    # show both images side by side
-    fig, ax = plt.subplots(1, 2, figsize=(16, 8))
-    ax[0].imshow(sentinel_img)
-    ax[0].set_title("Sentinel Image")
-    ax[0].axis('off')
-    ax[1].imshow(mapbox_image)
-    ax[1].set_title("Mapbox Image")
-    ax[1].axis('off')
-    plt.show()
-
-def test_sentinel_hyperspectral():
-
-    """
-    # create false color images using different band combinations
-    # True Color (Red, Green, Blue)
-    images['rgb'] = {'image': scale_rgb(image_data[["red", "green", "blue"]].to_array().values.transpose(1, 2, 0))}
-    images['rgb']['description'] = "True Color (red, green, blue)"
-    # traditional NIR image. healthy plants reflect NIR and are therefore  a strong red. Allows to see different vegetation. Bright red = healthy forest/crops; Dull red = grasslands; Cyan/Grey = buildings and other non-vegetated surfaces
-    images['tnir'] = {'image': scale_rgb(image_data[["nir", "red", "green"]].to_array().values.transpose(1, 2, 0))}
-    images['tnir']['description'] = "Traditional NIR (nir, red, green)"
-    # SWIR (showrt-wave infrared): sensiteive to water and water. Deep green indicates lush, water-rich vegetation. Very dark blue/black indicates clear water.
-    images['swir'] = {'image': scale_rgb(image_data[["swir22", "nir", "green"]].to_array().values.transpose(1, 2, 0))}
-    images['swir']['description'] = "SWIR (swir22, nir, green)"
-    # urban false color with swire22, swir16, red: This combination "sees" through atmospheric haze and smoke much better than visible light. Urban areas and bare soil pop in shades of purple and brown, while vegetation appears in green.
-    images['ufc'] = {'image': scale_rgb(image_data[["swir22", "swir16", "red"]].to_array().values.transpose(1, 2, 0))}
-    images['ufc']['description'] = "Urban False Color (swir22, swir16, red)"
-    # vegetation index: rededge3, rededge2, rededge1 Sentinel-2 is unique because of these three "Red Edge" bands. They capture the specific point where plant reflectance jumps. Precision agriculture and detecting early-stage plant stress before it’s visible in RGB. Color differences indicate differences in platn health/development.
-    images['vi'] = {'image': scale_rgb(image_data[["rededge3", "rededge2", "rededge1"]].to_array().values.transpose(1, 2, 0))}
-    images['vi']['description'] = "Vegetation Index (rededge3, rededge2, rededge1)"
-
-    """
+    lon_lat_alt = position_data.get("lon-lat-alt")
+    timestamp = position_data.get("timestamp")
 
     images = []
-    for i, spectral_bands in enumerate([ ['red', 'green', 'blue'], 
-                                         ['nir', 'red', 'green'], 
-                                         ["swir22", "nir", "green"],
-                                         ["swir22", "swir16", "red"],
-                                         ['rededge1', 'rededge2', 'rededge3']]):
+    for spectral_bands in band_sets:
         params = {
-        "spectral_bands": spectral_bands,
-        "size_km": 5.0,
-        "return_type": "png"
+            "lon": lon_lat_alt[0],
+            "lat": lon_lat_alt[1],
+            "timestamp": timestamp,
+            "spectral_bands": spectral_bands,
+            "size_km": 5.0,
+            "return_type": "png",
+            #"window_seconds": 60.0
         }
-        response = requests.get("http://localhost:9005/data/current/image/sentinel", params=params)
-        if response.status_code != 200:
-            print(f"Error: Received status code {response.status_code}")
-            print(f"Response: {response.text}")
-            return
-        images.append([(mpimg.imread(io.BytesIO(response.content), format='PNG')), "_".join(spectral_bands)]) 
+        response = _request_get("/data/image/sentinel", params=params)
+        if response is None:
+            continue
 
-    # show all images side by side
+        try:
+            metadata = json.loads(response.headers.get("sentinel_metadata", ""))
+        except json.JSONDecodeError:
+            metadata = None
+
+        if not isinstance(metadata, dict) or not metadata.get("image_available"):
+            print(f"No image available for bands {spectral_bands}")
+            continue
+
+        try:
+            image = mpimg.imread(io.BytesIO(response.content), format="PNG")
+        except Exception as exc:
+            print(f"Could not decode image for bands {spectral_bands}: {exc}")
+            continue
+
+        images.append((image, "_".join(spectral_bands)))
+
+    if not images:
+        print("No hyperspectral images available to display.")
+        return
+
     n_images = len(images)
-    fig, ax = plt.subplots(1, n_images, figsize=(5 * n_images, 5))
-    for i in range(n_images):
-        ax[i].imshow(images[i][0])
-        ax[i].set_title(f"Bands: {images[i][1]}")
-        ax[i].axis('off')
-    plt.show()
-        
-    
+    fig, axes = plt.subplots(1, n_images, figsize=(5 * n_images, 5))
+    if n_images == 1:
+        axes = [axes]
 
-    # mapbox image
+    for axis, (image, bands_label) in zip(axes, images):
+        axis.imshow(image)
+        axis.set_title(f"Bands: {bands_label}")
+        axis.axis("off")
+    plt.tight_layout()
+    plt.show()
+
+
+def test_mapbox_current() -> None:
+    params = {
+        #"lon": 6.6323,
+        #"lat": 46.5197,
+    }
+    _test_mapbox_endpoint("/data/current/image/mapbox", params)
+
+
+def test_mapbox() -> None:
+    params = {
+        "lon_target": 6.6323,
+        "lat_target": 46.5197,
+        "lon_satellite": 6.6323,
+        "lat_satellite": 46.5197,
+        "alt_satellite": 500,
+    }
+    _test_mapbox_endpoint("/data/image/mapbox", params)
+
 
 if __name__ == "__main__":
-    #test_sentinel()
-    #test_mapbox()
-    #mapbox_sentinel_test()
-    test_sentinel_hyperspectral()
+    tests = {
+        "sentinel": test_sentinel,
+        "sentinel_current": test_sentinel_current,
+        "sentinel_multispectral": test_sentinel_multispectral,
+        "mapbox": test_mapbox,
+        "mapbox_current": test_mapbox_current,
+    }
+
+    parser = argparse.ArgumentParser(description="Run API test functions.")
+    parser.add_argument("test", nargs="?", default="sentinel_current", choices=sorted(tests.keys()))
+    args = parser.parse_args()
+    tests[args.test]()

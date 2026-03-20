@@ -27,7 +27,7 @@ MAPBOX_TOKEN = os.environ.get("MAPBOX_ACCESS_TOKEN")
 
 def get_image(data):
     url = f"https://api.mapbox.com/styles/v1/mapbox/satellite-v9/static/{data['lon']},{data['lat']},{data['zoom']},{data['bearing']},{data['pitch']}/1280x1280@2x?access_token={MAPBOX_TOKEN}"
-    filename = f"./dataset/lon{data['lon']}_lat{data['lat']}_b{data['bearing']}_p{data['pitch']}_z{data['zoom']}.png"
+    filename = f"./scripts/mapbox_dataset/lon{data['lon']}_lat{data['lat']}_b{data['bearing']}_p{data['pitch']}_z{data['zoom']}.png"
     response = requests.get(url)
     if response.status_code == 200:            
         with open(filename, "wb") as f:

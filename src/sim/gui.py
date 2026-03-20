@@ -46,6 +46,8 @@ class WebGuiConnector:
             self.pause_simulation(parameters)
         elif command == 'stop':
             self.reset_simulation(parameters)
+        elif command == 'set_start_time':
+            self.set_start_time(parameters)
         
         
 
@@ -106,4 +108,12 @@ class WebGuiConnector:
             signal=TOPIC_SIMULATION_COMMAND,
             sender=self,
             data={'command': 'reset'},
+        )
+
+    def set_start_time(self, parameters):
+        print("Setting simulation start time...")
+        dispatcher.send(
+            signal=TOPIC_SIMULATION_COMMAND,
+            sender=self,
+            data={'command': 'set_start_time', 'parameters': parameters},
         )

@@ -94,13 +94,18 @@ class Simulator:
     
     def on_command(self, sender, data):
         command = data.get('command', '')
+        parameters = data.get('parameters', {})
         print(f"[SIM COMMAND] Command received: {command}")
         if command == 'start':
             print("[SIM COMMAND] Start simulation command received.")
-            {'step_size_seconds': 1, 'replay_speed': 1.0}
-            self.set_sim_speed(step_size = data.get('parameters', {}).get('step_size_seconds', 10),
-                               replay_speed = data.get('parameters', {}).get('replay_speed', 1.0))
+            if "start_time" in parameters:
+                self.set_start_time(parameters.get("start_time"))
+            self.set_sim_speed(step_size=parameters.get('step_size_seconds', 10),
+                               replay_speed=parameters.get('replay_speed', 1.0))
             self.sim_is_running = True
+        elif command == 'set_start_time':
+            print("[SIM COMMAND] Set start time command received.")
+            self.set_start_time(parameters.get("start_time"))
         elif command == 'pause':
             print("[SIM COMMAND] Pause simulation command received.")
             self.sim_is_running = False
@@ -124,4 +129,36 @@ class Simulator:
 
         # correct the start time to account for speed change. Otherwise there will be jumps in the timeline
         self.start_time = time.time() - (self.currentTime_EpSec / self.timing_mode if self.timing_mode > 0 else 0)
+
+    def _parse_start_time(self, start_time):
+        if not isinstance(start_time, str):
+            return None
+
+        normalized = start_time.strip()
+        if normalized.endswith("Z"):
+            normalized = normalized[:-1] + "+00:00"
+
+        try:
+            dt = datetime.datetime.fromisoformat(normalized)
+        except ValueError:
+            return None
+
+        # Only accept ISO-8601 timestamps that explicitly represent UTC.
+        if dt.tzinfo is None or dt.utcoffset() != datetime.timedelta(0):
+            return None
+
+        return dt.timestamp()
+
+    def set_start_time(self, start_time):
+        start_ts = self._parse_start_time(start_time)
+        if start_ts is None:
+            print(f"[SIM WARNING] Invalid start_time '{start_time}'. Expected ISO-8601 UTC (e.g. 2026-03-12T12:34:56Z).")
+            return False
+
+        self.sim_t0 = start_ts
+        self.utcg_time = self.sim_t0
+        self.currentTime_EpSec = 0
+        self.start_time = None
+        print(f"[SIM COMMAND] Simulation start time set to: {datetime.datetime.fromtimestamp(self.sim_t0).isoformat()}")
+        return True
         

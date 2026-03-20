@@ -53,8 +53,8 @@ def run_sim(shared_data_dict, timing, time_step):
     gui = WebGuiConnector()
 
     # 4. Initialize the simulation engine
-    line1 = "1 58469U 23185H   24092.52931972  .00003325  00000+0  25755-3 0  9995"
-    line2 = "2 58469  97.6719 160.4649 0013302 174.6184 185.5186 15.02057459 18273"
+    line1 = "1 60989U 24157A   26075.16558042  .00000129  00000-0  65710-4 0  9997"
+    line2 = "2 60989  98.5677 151.2852 0000884 109.8893 250.2385 14.30816791 79683"
     sim_engine = Simulator("SatelliteName", TLE=[line1, line2], t0=None, timing_mode=timing, time_step=time_step)
 
     # 5. Add subsystems (only the camera in this case)
