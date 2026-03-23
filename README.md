@@ -10,7 +10,7 @@ This is a fully online event, open to builders from all around the globe.
 <div align="center">
   <a href="https://luma.com/n9cw58h0">
     <img
-      src="banner2.jpeg"
+      src="banner.jpeg"
       alt="SimSat"
       style="width: 70%; max-width: 70%; height: auto; display: inline-block; margin-bottom: 0.5em; margin-top: 0.5em;"
     />
