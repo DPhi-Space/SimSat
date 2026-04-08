@@ -61,12 +61,47 @@ The simulation can be controlled through the web dashboard by setting the follow
 
 The changes are applied when the start button is pressed. If the simulation is not able to run as fast as the settings require, the system will throttle itself down. We recommend to set the step size and replay speed such that `replay_speed / step_size <= 2`.
 
+## Control via API
+
+The simulation can also be controlled programmatically by sending POST requests to the dashboard command endpoint at `http://localhost:8000/api/commands/`. This is equivalent to using the GUI buttons and is useful for automated workflows.
+
+**Available commands:**
+
+| Command | Additional fields | Effect |
+|---|---|---|
+| `"start"` | optional: `start_time`, `step_size_seconds`, `replay_speed` | Start or resume the simulation |
+| `"pause"` | — | Pause the simulation |
+| `"stop"` | — | Stop and reset the simulation |
+| `"set_start_time"` | `start_time` (ISO-8601 UTC) | Change the simulation start time |
+| `"set_step_size"` | `step_size_seconds` (positive int) | Change the step size |
+| `"set_replay_speed"` | `replay_speed` (positive float) | Change the replay speed |
+
+**Example:**
+```python
+import requests
+
+DASHBOARD = "http://localhost:8000"
+
+# Start the simulation with custom parameters
+requests.post(f"{DASHBOARD}/api/commands/", json={
+    "command": "start",
+    "start_time": "2026-01-01T16:00:00Z",
+    "step_size_seconds": 10,
+    "replay_speed": 10.0,
+})
+
+# Pause and stop
+requests.post(f"{DASHBOARD}/api/commands/", json={"command": "pause"})
+requests.post(f"{DASHBOARD}/api/commands/", json={"command": "stop"})
+```
+
+
 ---
 # APIs
 
 The satellite can be accessed through the provided APIs. The base URL for the APIs is [http://localhost:9005](http://localhost:9005).
 
-### GET /data/current/position
+## GET /data/current/position
 
 This endpoint returns the current position of the satellite in latitude (degrees), longitude (degrees), and altitude (kilometers), as well as the current simulation timestamp.
 
@@ -78,7 +113,8 @@ This endpoint returns the current position of the satellite in latitude (degrees
 }
 ```
 
-### GET /data/current/image/sentinel
+## GET /data/current/image/sentinel
+
 This endpoint returns an image from the Sentinel-2 dataset for the current satellite position. More information about Sentinel-2 images can be found in the [Datasets Section](#datasets)
 
 **Query Parameters:**
@@ -112,7 +148,8 @@ If `return_type="png"` an image file is returned as the response, while if `retu
 
 `datetime` indicates the timestamp at which the image was captured by the Sentinel satellite, which in general does not coincide with the timestamp of the simulated satellite. However, the retrieved image is the latest one relative to the simulation timestamp.
 
-### GET /data/current/image/mapbox
+## GET /data/current/image/mapbox
+
 This endpoint returns an image from the Mapbox dataset for the current satellite position pointing to a specified target location. The bearing (direction) and pitch (angle) are calculated based on the satellite position and the target location. If the elevation angle is smaller than 30° the target location is considered not visible from the satellite. More information about Mapbox images can be found in the [Datasets Section](#datasets)
 
 **Query Parameters:**
@@ -136,7 +173,8 @@ A PNG image file is returned as the response. Also, the following metadata are r
 
 An API key for Mapbox (free tier available) is required to use this endpoint. Set the environment variable `MAPBOX_ACCESS_TOKEN` to your access token before starting the simulation. More details can be found in the [Datasets Section](#datasets).
 
-### GET /data/image/sentinel
+## GET /data/image/sentinel
+
 This endpoint returns an image from the Sentinel-2 dataset for a given position and timestamp (not from the current satellite simulation). The metadata returned are the same as the `/data/current/image/sentinel` endpoint except `satellite_position` and `timestamp`.
 
 **Query Parameters:**
@@ -148,7 +186,7 @@ This endpoint returns an image from the Sentinel-2 dataset for a given position 
 - `return_type`: Format of the returned image, either "png" or "array" (default: "png")
 - `window_seconds`: Length of the time window (in seconds) used to search Sentinel images before the requested timestamp (default: 864000, i.e. 10 days)
 
-### GET /data/image/mapbox
+## GET /data/image/mapbox
 This endpoint returns an image from the Mapbox dataset for a given satellite position (not from the current satellite simulation) and a given target location. The metadata returned are the same as the `/data/current/image/mapbox` endpoint except `satellite_position` and `timestamp`.
 
 **Query Parameters:**
