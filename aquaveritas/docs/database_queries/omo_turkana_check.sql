@@ -1,0 +1,3 @@
+select water_extent_status,location_id,water_clarity,agriculture_present,shoreline_encroachment from observations
+where location_id='omo_river' OR location_id='lake_turkana'
+group by water_extent_status,location_id,water_clarity,agriculture_present,shoreline_encroachment

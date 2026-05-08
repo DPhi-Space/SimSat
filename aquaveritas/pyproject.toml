@@ -1,0 +1,28 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "aquaveritas"
+version = "0.1.0"
+description = "On-board satellite freshwater body and agricultural stress monitor"
+requires-python = ">=3.10"
+dependencies = [
+    "anthropic>=0.50",
+    "openai>=1.0",
+    "psycopg2-binary>=2.9",
+    "requests>=2.31",
+    "Pillow>=10.0",
+    "tqdm>=4.66",
+    "datasets>=2.19",
+    "huggingface-hub>=0.23",
+    "streamlit>=1.35",
+    "pydeck>=0.9",
+    "plotly>=5.20",
+    "pandas>=2.0",
+    "modal>=0.64",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/aquaveritas"]
+

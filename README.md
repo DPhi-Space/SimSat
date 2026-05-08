@@ -1,28 +1,37 @@
 # SimSat
-This tool simulates the accessibility of Earth imagery from a satellite. An orbit propagator calculates the satellite position over time and an API serves as an interface to on-board users, sharing the current position, timestamp and providing satellite imagery from that location. A web-based dashboard controls and visualizes the simulation.
 
-## Upcoming Hackathon: AI in Space | Liquid AI x DPhi Space
+SimSat simulates Earth imagery accessibility from a satellite. An orbit propagator calculates satellite position over time; an API exposes the current position, timestamp, and Sentinel-2 / Mapbox imagery for that location; a web dashboard controls and visualises the simulation.
 
-This is the official repository for the upcoming [AI in Space Hackathon](https://luma.com/n9cw58h0), organised in partnership between DPhi Space and Liquid AI.
+## AquaVeritas — Hackathon Submission
 
-This is a fully online event, open to builders from all around the globe.
+**AquaVeritas** is a freshwater monitoring system built on top of SimSat for the
+[Liquid AI x DPhi Space Hackathon: AI in Space (Hack #05)](https://luma.com/n9cw58h0).
+
+It uses a fine-tuned LFM2.5-VL-450M vision-language model to detect water body
+collapse, flood risk, agricultural encroachment, and settlement expansion across
+20 global sites from Sentinel-2 satellite imagery.
+
+| Resource | Link |
+|---|---|
+| Live demo (HF Space) | [Arty1001/aquaveritas](https://huggingface.co/spaces/Arty1001/aquaveritas) |
+| Model (GGUF) | [Arty1001/aquaveritas-lfm-GGUF](https://huggingface.co/Arty1001/aquaveritas-lfm-GGUF) |
+| Dataset | [devleks/aquaveritas-water-stress](https://huggingface.co/datasets/devleks/aquaveritas-water-stress) |
+| Setup guide | [SETUP.md](SETUP.md) |
 
 <div align="center">
   <a href="https://luma.com/n9cw58h0">
     <img
       src="banner.jpeg"
-      alt="SimSat"
+      alt="SimSat — AI in Space Hackathon"
       style="width: 70%; max-width: 70%; height: auto; display: inline-block; margin-bottom: 0.5em; margin-top: 0.5em;"
     />
   </a>
-  <div>
-    <a href="https://luma.com/n9cw58h0"><img src="https://img.shields.io/badge/Register%20for%20the%20Event-C026D3?style=for-the-badge" alt="Register for the Event" /></a>
-  </div>
 </div>
 
 
 ## Table of Contents
 - [Getting Started](#getting-started)
+- [Dashboard](#dashboard)
 - [Simulation Control](#simulation-control)
 - [APIs](#apis)
   - [/data/current/position](#get-datacurrentposition)
@@ -34,74 +43,92 @@ This is a fully online event, open to builders from all around the globe.
   - [Sentinel-2](#sentinel-2)
   - [Mapbox](#mapbox)
 - [Test Examples](#test-examples)
+- [How-To Guide](#how-to-guide)
 
 ---
 # Getting Started
-To start the environment, start the Docker containers with
+
+## Prerequisites
+- [Docker](https://docs.docker.com/get-docker/) and Docker Compose
+- A [Mapbox account](https://www.mapbox.com/) with an access token (free tier available)
+
+## Configuration
+
+Create a `.env` file in the project root:
+
+```bash
+MAPBOX_ACCESS_TOKEN=your_mapbox_token_here
+```
+
+> The sim container will not start without `MAPBOX_ACCESS_TOKEN`. The dashboard generates a `DJANGO_SECRET_KEY` automatically on each startup — no configuration needed.
+
+## Running
 
 ```bash
 docker compose up
 ```
 
-After the startup, the dashboard is accessible at [http://localhost:8000](http://localhost:8000). To start the simulation, press the start button. Then you can follow the satellite by clicking on the blue dot followed by clicking on the camera icon in the popup window. 
+After startup:
+- **Dashboard:** [http://localhost:8000](http://localhost:8000) — press **Start** in the Simulation Controls panel
+- **API:** [http://localhost:9005](http://localhost:9005)
 
-The API to fetch images is accessible at [http://localhost:9005](http://localhost:9005). In order to test this, you can run the provided script `scripts/api_test.py` from your host machine. This will fetch an image from the API and display it using matplotlib.
+To test the API from your host machine:
 ```bash
 python scripts/api_test.py
 ```
 
-Note: if no image is displayed, the satellite might be over the ocean. More details about image availability are reported in the [Datasets Section](#datasets).
+> If no image is displayed, the satellite is likely over the ocean. See the [Datasets Section](#datasets) for coverage details.
+
+## Rebuilding after code changes
+
+```bash
+docker compose down && docker build --no-cache -f Dockerfile.dashboard -t simsat-dashboard . && docker compose up -d
+```
+
+> Always use `--no-cache` to ensure the new frontend build is picked up correctly.
+
+---
+# Dashboard
+
+The web dashboard at [http://localhost:8000](http://localhost:8000) provides three panels:
+
+### Globe View
+A 3D Cesium globe showing the satellite's real-time position. Once the simulation is started:
+- A **cyan dot** marks the current satellite position
+- A **glowing orbital trail** traces the last 90 minutes of flight path, growing as the simulation runs
+- The trail uses Lagrange interpolation for smooth movement between telemetry ticks
+
+### Simulation Controls
+Set simulation parameters and control playback:
+- **Start time** — ISO-8601 UTC format, e.g. `2026-01-01T16:00:00Z`
+- **Step size** — simulated seconds per tick
+- **Replay speed** — simulation speed relative to real time (`1` = real time)
+
+Press **Start** to apply settings and begin the simulation.
+
+### Imagery Panel
+Query Sentinel-2 and Mapbox satellite imagery for any location directly from the dashboard:
+- Enter **Latitude** and **Longitude** manually, or click **Use Satellite Position** to auto-fill from the live telemetry
+- Click **Fetch Images** to retrieve both images simultaneously
+- Results display side-by-side with metadata: cloud cover, capture time, source satellite (Sentinel) and elevation angle, zoom, bearing (Mapbox)
+
+> The Imagery panel uses the simulation timestamp when fetching Sentinel images and searches a 30-day window to maximise the chance of finding a cloud-free acquisition.
 
 ---
 # Simulation Control
-The simulation can be controlled through the web dashboard by setting the following parameters:
+The simulation can be controlled through the Simulation Controls panel in the dashboard at [http://localhost:8000](http://localhost:8000) by setting the following parameters:
 - **Start time:** it must be in the ISO-8601 UTC format `YYYY-MM-DDThh:mm:ssZ`. For example `2026-01-01T16:00:00Z`. 
 - **Step size:** simulated time increment (in seconds) between each simulation update.
 - **Replay speed:** how fast simulation time runs compared to real time (`1` = real time, `2` = twice as fast).
 
 The changes are applied when the start button is pressed. If the simulation is not able to run as fast as the settings require, the system will throttle itself down. We recommend to set the step size and replay speed such that `replay_speed / step_size <= 2`.
 
-## Control via API
-
-The simulation can also be controlled programmatically by sending POST requests to the dashboard command endpoint at `http://localhost:8000/api/commands/`. This is equivalent to using the GUI buttons and is useful for automated workflows.
-
-**Available commands:**
-
-| Command | Additional fields | Effect |
-|---|---|---|
-| `"start"` | optional: `start_time`, `step_size_seconds`, `replay_speed` | Start or resume the simulation |
-| `"pause"` | — | Pause the simulation |
-| `"stop"` | — | Stop and reset the simulation |
-| `"set_start_time"` | `start_time` (ISO-8601 UTC) | Change the simulation start time |
-| `"set_step_size"` | `step_size_seconds` (positive int) | Change the step size |
-| `"set_replay_speed"` | `replay_speed` (positive float) | Change the replay speed |
-
-**Example:**
-```python
-import requests
-
-DASHBOARD = "http://localhost:8000"
-
-# Start the simulation with custom parameters
-requests.post(f"{DASHBOARD}/api/commands/", json={
-    "command": "start",
-    "start_time": "2026-01-01T16:00:00Z",
-    "step_size_seconds": 10,
-    "replay_speed": 10.0,
-})
-
-# Pause and stop
-requests.post(f"{DASHBOARD}/api/commands/", json={"command": "pause"})
-requests.post(f"{DASHBOARD}/api/commands/", json={"command": "stop"})
-```
-
-
 ---
 # APIs
 
 The satellite can be accessed through the provided APIs. The base URL for the APIs is [http://localhost:9005](http://localhost:9005).
 
-## GET /data/current/position
+### GET /data/current/position
 
 This endpoint returns the current position of the satellite in latitude (degrees), longitude (degrees), and altitude (kilometers), as well as the current simulation timestamp.
 
@@ -113,8 +140,7 @@ This endpoint returns the current position of the satellite in latitude (degrees
 }
 ```
 
-## GET /data/current/image/sentinel
-
+### GET /data/current/image/sentinel
 This endpoint returns an image from the Sentinel-2 dataset for the current satellite position. More information about Sentinel-2 images can be found in the [Datasets Section](#datasets)
 
 **Query Parameters:**
@@ -148,8 +174,7 @@ If `return_type="png"` an image file is returned as the response, while if `retu
 
 `datetime` indicates the timestamp at which the image was captured by the Sentinel satellite, which in general does not coincide with the timestamp of the simulated satellite. However, the retrieved image is the latest one relative to the simulation timestamp.
 
-## GET /data/current/image/mapbox
-
+### GET /data/current/image/mapbox
 This endpoint returns an image from the Mapbox dataset for the current satellite position pointing to a specified target location. The bearing (direction) and pitch (angle) are calculated based on the satellite position and the target location. If the elevation angle is smaller than 30° the target location is considered not visible from the satellite. More information about Mapbox images can be found in the [Datasets Section](#datasets)
 
 **Query Parameters:**
@@ -173,8 +198,7 @@ A PNG image file is returned as the response. Also, the following metadata are r
 
 An API key for Mapbox (free tier available) is required to use this endpoint. Set the environment variable `MAPBOX_ACCESS_TOKEN` to your access token before starting the simulation. More details can be found in the [Datasets Section](#datasets).
 
-## GET /data/image/sentinel
-
+### GET /data/image/sentinel
 This endpoint returns an image from the Sentinel-2 dataset for a given position and timestamp (not from the current satellite simulation). The metadata returned are the same as the `/data/current/image/sentinel` endpoint except `satellite_position` and `timestamp`.
 
 **Query Parameters:**
@@ -186,7 +210,7 @@ This endpoint returns an image from the Sentinel-2 dataset for a given position 
 - `return_type`: Format of the returned image, either "png" or "array" (default: "png")
 - `window_seconds`: Length of the time window (in seconds) used to search Sentinel images before the requested timestamp (default: 864000, i.e. 10 days)
 
-## GET /data/image/mapbox
+### GET /data/image/mapbox
 This endpoint returns an image from the Mapbox dataset for a given satellite position (not from the current satellite simulation) and a given target location. The metadata returned are the same as the `/data/current/image/mapbox` endpoint except `satellite_position` and `timestamp`.
 
 **Query Parameters:**
@@ -269,4 +293,15 @@ Available arguments:
 - `mapbox_current`: Retrieves and displays a Mapbox image for the current simulated satellite's position
 
 If no argument is provided, the script runs the `sentinel_current` test by default.
+
+---
+# How-To Guide
+
+A detailed curl and Python how-to guide for all API endpoints is available at [`docs/api-howto.md`](docs/api-howto.md). It covers:
+
+- Getting current satellite position
+- Fetching Sentinel-2 images (current position and arbitrary location)
+- Fetching Mapbox images (nadir and off-nadir views)
+- Side-by-side multispectral comparison with matplotlib
+- Full response metadata reference for both Sentinel and Mapbox
 

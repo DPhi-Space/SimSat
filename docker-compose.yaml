@@ -1,4 +1,4 @@
-version: '3.8'
+#version: '3.8'
 
 services:
   dashboard:
@@ -9,11 +9,10 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      # Persist database
-      - dashboard_db:/app
+      # Persist database only — do NOT mount /app or static files get shadowed
+      - dashboard_db:/app/data
     environment:
       - DJANGO_DEBUG=1
-      - DJANGO_SECRET_KEY=dev-secret-key-change-me-in-production
     networks:
       - fakesat-network
     healthcheck:
@@ -32,7 +31,7 @@ services:
       - "9005:8000"  # Map sim API to different port on host
     environment:
       - DASHBOARD_URL=http://dashboard:8000
-      - MAPBOX_ACCESS_TOKEN
+      - MAPBOX_ACCESS_TOKEN=${MAPBOX_ACCESS_TOKEN}
     depends_on:
       dashboard:
         condition: service_healthy
@@ -41,9 +40,29 @@ services:
     # Allow multiprocessing
     shm_size: '256mb'
 
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: aquaveritas-postgres
+    environment:
+      POSTGRES_DB:       aquaveritas
+      POSTGRES_USER:     aqua
+      POSTGRES_PASSWORD: veritas
+    ports:
+      - "5433:5432"  # 5433 avoids conflict with local Homebrew postgres on 5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - fakesat-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aqua -d aquaveritas"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 networks:
   fakesat-network:
     driver: bridge
 
 volumes:
   dashboard_db:
+  postgres_data:
