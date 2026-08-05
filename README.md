@@ -1,14 +1,12 @@
 # SimSat
 This tool simulates the accessibility of Earth imagery from a satellite. An orbit propagator calculates the satellite position over time and an API serves as an interface to on-board users, sharing the current position, timestamp and providing satellite imagery from that location. A web-based dashboard controls and visualizes the simulation.
 
-## Upcoming Hackathon: AI in Space | Liquid AI x DPhi Space
+## Upcoming Pitch Contest: AI-powered Satellites for KSA | DPhi Space x LEAP 2026
 
-This is the official repository for the upcoming [AI in Space Hackathon](https://luma.com/n9cw58h0), organised in partnership between DPhi Space and Liquid AI.
-
-This is a fully online event, open to builders from all around the globe.
+This is the official repository for the upcoming [Pitch Contest](https://luma.com/96qcgzfc) at the LEAP 2026 Space Stage, organised by DPhi Space.
 
 <div align="center">
-  <a href="https://luma.com/n9cw58h0">
+  <a href="https://luma.com/96qcgzfc">
     <img
       src="banner.jpeg"
       alt="SimSat"
@@ -16,9 +14,13 @@ This is a fully online event, open to builders from all around the globe.
     />
   </a>
   <div>
-    <a href="https://luma.com/n9cw58h0"><img src="https://img.shields.io/badge/Register%20for%20the%20Event-C026D3?style=for-the-badge" alt="Register for the Event" /></a>
+    <a href="https://luma.com/96qcgzfc"><img src="https://img.shields.io/badge/Register%20for%20the%20Event-C026D3?style=for-the-badge" alt="Register for the Event" /></a>
   </div>
 </div>
+
+For reference and inspiration, here are some examples of projects from a previous "AI in Space" hackathon organised by DPhi Space and LiquidAI, where developers built applications based on vision-language models to extract meaningful insights from satellite imagery.
+- Parali: Illegal crop-burning monitoring. [Project Repository](https://github.com/munish0838/parali)
+- LEWS: Landslide Early Warning. [Project Repository](https://gitlab.com/sciamlab/ai/lews)
 
 
 ## Table of Contents
