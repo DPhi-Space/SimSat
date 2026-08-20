@@ -1,7 +1,7 @@
 # SimSat
 This tool simulates the accessibility of Earth imagery from a satellite. An orbit propagator calculates the satellite position over time and an API serves as an interface to on-board users, sharing the current position, timestamp and providing satellite imagery from that location. A web-based dashboard controls and visualizes the simulation.
 
-## Upcoming Pitch Contest: AI-powered Satellites for KSA | DPhi Space x LEAP 2026
+## Upcoming Pitch Contest: Applications of AI-Powered Satellites for KSA | DPhi Space @ LEAP 2026
 
 This is the official repository for the upcoming [Pitch Contest](https://luma.com/96qcgzfc) at the LEAP 2026 Space Stage, organised by DPhi Space.
 
