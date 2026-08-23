@@ -21,6 +21,7 @@ This is the official repository for the upcoming [Pitch Contest](https://luma.co
 For reference and inspiration, here are some examples of projects from a previous "AI in Space" hackathon organised by DPhi Space and LiquidAI, where developers built applications based on vision-language models to extract meaningful insights from satellite imagery.
 - Parali: Illegal crop-burning monitoring. [Project Repository](https://github.com/munish0838/parali)
 - LEWS: Landslide Early Warning. [Project Repository](https://gitlab.com/sciamlab/ai/lews)
+- HyperscalerWatch: Data center buildout tracking. [Project Repository](https://github.com/Shania99/HyperscalarWatch)
 
 
 ## Table of Contents
