@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.dashboard
-    container_name: fakesat-dashboard
+    container_name: simsat-dashboard
     ports:
       - "8000:8000"
     volumes:
@@ -15,7 +15,7 @@ services:
       - DJANGO_DEBUG=1
       - DJANGO_SECRET_KEY=dev-secret-key-change-me-in-production
     networks:
-      - fakesat-network
+      - simsat-network
     healthcheck:
       test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/api/telemetry/recent/\")'"]
       interval: 30s
@@ -27,7 +27,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.sim
-    container_name: fakesat-sim
+    container_name: simsat-sim
     ports:
       - "9005:8000"  # Map sim API to different port on host
     environment:
@@ -37,12 +37,12 @@ services:
       dashboard:
         condition: service_healthy
     networks:
-      - fakesat-network
+      - simsat-network
     # Allow multiprocessing
     shm_size: '256mb'
 
 networks:
-  fakesat-network:
+  simsat-network:
     driver: bridge
 
 volumes:
